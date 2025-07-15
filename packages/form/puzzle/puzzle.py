@@ -2,6 +2,19 @@ import re, os, requests as req
 #MODEL = "llama3.1:8b"
 MODEL = "phi4:14b"
 
+USAGE="""Let me generate a chess puzzle for you, what do you want in it?"""
+
+FORM = [
+  {
+    "name": "pieces",
+    "label": "What pieces do you want in the puzzle?",
+    "type": "radio",
+    "required": "true",
+    "options": ["Queen", "Rook", "Knight", "Bishop"]
+  }
+]
+
+
 def chat(args, inp):
   host = args.get("OLLAMA_HOST", os.getenv("OLLAMA_HOST"))
   auth = args.get("AUTH", os.getenv("AUTH"))
@@ -20,11 +33,19 @@ def extract_fen(out):
   return fen
 
 def puzzle(args):
-  out = "If you want to see a chess puzzle, type 'puzzle'. To display a fen position, type 'fen <fen string>'."
   inp = args.get("input", "")
   res = {}
-  if inp == "puzzle":
-    inp = "generate a chess puzzle in FEN format"
+  if inp == "":
+     out = USAGE
+     res['form'] = FORM
+  
+  elif type(inp) is dict and "form" in inp:
+    data = inp["form"]
+    for field in data.keys():
+      print(data[field])
+
+    inp = f"""generate a chess puzzle in FEN format, put the following piece in the puzzle: a white {data['pieces']}."""
+    print(inp)
     out = chat(args, inp)
     fen = extract_fen(out)
     if fen:
@@ -32,17 +53,10 @@ def puzzle(args):
        res['chess'] = fen
     else:
       out = "Bad FEN position."
-  elif inp.startswith("fen"):
-    fen = extract_fen(inp)
-    if fen:
-       out = "Here you go."
-       res['chess'] = fen
+
   elif inp != "":
     out = chat(args, inp)
-    fen = extract_fen(out)
-    print(out, fen)
-    if fen:
-      res['chess'] = fen
 
-  res["output"] = out
+  res['output'] = out
+  print(res)
   return res
