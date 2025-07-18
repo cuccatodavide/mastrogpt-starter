@@ -17,8 +17,8 @@ class Chat:
             api_key = api_key,
         )
         
-        self.sock = args.get("STREAM_HOST")
-        self.port = int(args.get("STREAM_PORT"))
+        self.sock = args.get("STREAM_HOST",  os.getenv("STREAM_HOST"))
+        self.port = int(args.get("STREAM_PORT", os.getenv("STREAM_PORT")))
         self.messages = []
         self.add(ROLE)
     
