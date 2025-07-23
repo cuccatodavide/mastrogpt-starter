@@ -33,7 +33,8 @@ class VectorDB:
       schema.add_field(field_name="id", datatype=DataType.INT64, is_primary=True, auto_id=True)
       schema.add_field(field_name="text", datatype=DataType.VARCHAR, max_length=DIMENSION_TEXT)
       schema.add_field(field_name="embeddings", datatype=DataType.FLOAT_VECTOR, dim=DIMENSION_EMBEDDING)
-      
+      schema.add_field(field_name="image_id", datatype=DataType.VARCHAR, max_length=16)
+
       index_params = self.client.prepare_index_params()
       index_params.add_index("embeddings", index_type="AUTOINDEX", metric_type="IP")
       print("collection_name=", self.collection)
@@ -48,10 +49,10 @@ class VectorDB:
     res = req.post(self.url, json=msg).json()
     return res.get('embedding', [])
 
-  def insert(self, text):
+  def insert(self, text, img_id=-1):
     vec = self.embed(text)
-    return self.client.insert(self.collection, {"text":text, "embeddings": vec})
-  
+    return self.client.insert(self.collection, {"text":text, "embeddings": vec, "image_id": img_id})
+
   def count(self):
     MAX="1000"
     res = self.client.query(collection_name=self.collection, output_fields=["id"], limit=int(MAX))
@@ -66,7 +67,7 @@ class VectorDB:
       collection_name=self.collection,
       search_params={"metric_type": "IP"},
       anns_field="embeddings", data=[vec],
-      output_fields=["text"],
+      output_fields=["text", "image_id"],
       limit=limit
     )
     res = []
@@ -74,7 +75,8 @@ class VectorDB:
       for item in cur[0]:
         dist = item.get('distance', 0)
         text = item.get("entity", {}).get("text", "")
-        res.append((dist, text))
+        img_id = item.get("entity", {}).get("image_id", -1)
+        res.append((dist, text, img_id))
     return res
 
   def remove_by_substring(self, inp):

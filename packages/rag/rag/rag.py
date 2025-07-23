@@ -1,6 +1,7 @@
 import os, re, requests as req
 import json, socket, traceback, time
 import vdb
+from bucket import Bucket
 
 MODELS = {
   "P": "phi4:14b",
@@ -108,26 +109,39 @@ def llm(args, model, prompt):
   return stream(args, lines)
 
 def rag(args):
+  out_str = {}
+  out_str["streaming"] = True
   inp = str(args.get('input', ""))
   out = USAGE
   if inp != "":
     opt = parse_query(inp)
+    buc = Bucket(args)
+    db = vdb.VectorDB(args, opt["collection"])
     if opt['content'] == '':
-      db = vdb.VectorDB(args, opt["collection"], shorten=True)
       lines = [f"model={opt['model']}\n", f"size={opt['size']}\n",f"collection={db.collection}\n",f"({",".join(db.collections)})"]
       out = streamlines(args, lines)
     else:
-      db = vdb.VectorDB(args, opt["collection"], shorten=True)
       res = db.vector_search(opt['content'], limit=opt['size'])
       prompt = ""
       if len(res) > 0:
+        ids = []
         prompt += "Consider the following text:\n"
-        for (w,txt) in res:
+        for (w,txt, id) in res:
+          if id != -1:
+            ids.append(id)
           prompt += f"{txt}\n"
         prompt += "Answer to the following prompt:\n"
-      prompt += f"{opt['content']}"
-        
+      prompt += f"{opt['content']}" 
       print(prompt)
+      img_html = ""
+      for id in set(ids):
+        if id != -1:
+          img = buc.read(id)
+          if img:
+            url = buc.exturl(id, 3600)
+            img_html += f"<img src='{url}'>"
+      out_str['html'] = img_html
       out = llm(args, opt['model'], prompt)
-
-  return { "output": out, "streaming": True}
+  out_str['output'] = out
+  print(out_str)
+  return out_str

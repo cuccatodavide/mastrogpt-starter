@@ -34,4 +34,5 @@ def form(args):
     res['html'] = f"<img src='{url}'>"
   res['form'] = FORM
   res['output'] = out
+  print(res)
   return res
