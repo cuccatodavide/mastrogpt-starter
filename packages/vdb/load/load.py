@@ -1,4 +1,4 @@
-import vdb
+import packages.vdb.load.vdb_old as vdb_old
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -56,7 +56,7 @@ def load(args):
   collection = args.get("COLLECTION", "default")
   out = f"{USAGE}Current colletion is {collection}"
   inp = str(args.get('input', ""))
-  db = vdb.VectorDB(args)
+  db = vdb_old.VectorDB(args)
   
   if inp.startswith("https://"):
     res = requests.get(inp)

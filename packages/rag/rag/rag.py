@@ -147,5 +147,6 @@ def rag(args):
         out_str['html'] = img_html
         out += f" I found the images: {img_ids}"
   out_str['output'] = out
+  del out_str['streaming']
   print(out_str)
   return out_str

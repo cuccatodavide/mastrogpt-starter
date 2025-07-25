@@ -2,14 +2,12 @@ import os, requests as req
 from pymilvus import MilvusClient, DataType
 
 MODEL="mxbai-embed-large:latest"
-DIMENSION_EMBEDDING=1024
-DIMENSION_TEXT=4096
-
-LIMIT=30
+DIMENSION=1024
+LIMIT=10
 
 class VectorDB:
 
-  def __init__(self, args, collection):
+  def __init__(self, args):
       uri = f"http://{args.get("MILVUS_HOST", os.getenv("MILVUS_HOST"))}"
       token = args.get("MILVUS_TOKEN", os.getenv("MILVUS_TOKEN"))    
       db_name = args.get("MILVUS_DB_NAME", os.getenv("MILVUS_DB_NAME"))
@@ -19,47 +17,31 @@ class VectorDB:
       auth = args.get("OLLAMA_TOKEN", os.getenv("AUTH"))
       self.url = f"https://{auth}@{host}/api/embeddings"
 
-      self.setup(collection)
+      self.collection = args.get("COLLECTION", "test")
+      self.setup()
 
-  def destroy(self, collection):
-    self.client.drop_collection(collection)
-    return f"Dropped {collection}\n"+self.setup("default")
-
-  def setup(self, collection):
-    self.collection = collection    
-    ls = self.client.list_collections()
-    if not collection in ls:
+  def setup(self, drop=False):
+    if drop:
+      self.client.drop_collection(self.collection)
+      
+    if not self.collection in self.client.list_collections():
       schema = self.client.create_schema()
       schema.add_field(field_name="id", datatype=DataType.INT64, is_primary=True, auto_id=True)
-      schema.add_field(field_name="text", datatype=DataType.VARCHAR, max_length=DIMENSION_TEXT)
-      schema.add_field(field_name="embeddings", datatype=DataType.FLOAT_VECTOR, dim=DIMENSION_EMBEDDING)
-      schema.add_field(field_name="image_id", datatype=DataType.VARCHAR, max_length=16)
-
+      schema.add_field(field_name="text", datatype=DataType.VARCHAR, max_length=DIMENSION)
+      schema.add_field(field_name="embeddings", datatype=DataType.FLOAT_VECTOR, dim=DIMENSION)
+      
       index_params = self.client.prepare_index_params()
       index_params.add_index("embeddings", index_type="AUTOINDEX", metric_type="IP")
-      print("collection_name=", self.collection)
-      self.client.create_collection(collection_name=collection, schema=schema, index_params=index_params)
-      ls.append(collection)
+      self.client.create_collection(collection_name=self.collection, schema=schema, index_params=index_params)
 
-    count = self.count()
-    return f"Collections: {" ".join(ls)}\n Current: {self.collection} [{count}]"
-  
   def embed(self, text):
     msg = { "model": MODEL, "prompt": text, "stream": False }
     res = req.post(self.url, json=msg).json()
     return res.get('embedding', [])
 
-  def insert(self, text, img_id='-1'):
+  def insert(self, text):
     vec = self.embed(text)
-    return self.client.insert(self.collection, {"text":text, "embeddings": vec, "image_id": img_id})
-
-  def count(self):
-    MAX="1000"
-    res = self.client.query(collection_name=self.collection, output_fields=["id"], limit=int(MAX))
-    count = str(len(res))
-    if count == MAX:
-      count += " or more..."
-    return count
+    return self.client.insert(self.collection, {"text":text, "embeddings": vec})
 
   def vector_search(self, inp, limit=LIMIT):
     vec = self.embed(inp)
@@ -67,16 +49,14 @@ class VectorDB:
       collection_name=self.collection,
       search_params={"metric_type": "IP"},
       anns_field="embeddings", data=[vec],
-      output_fields=["text", "image_id"],
-      limit=limit
+      output_fields=["text"]
     )
     res = []
     if len(cur[0]) > 0:
       for item in cur[0]:
         dist = item.get('distance', 0)
         text = item.get("entity", {}).get("text", "")
-        img_id = item.get("entity", {}).get("image_id", '-1')
-        res.append((dist, text, img_id))
+        res.append((dist, text))
     return res
 
   def remove_by_substring(self, inp):

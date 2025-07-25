@@ -5,8 +5,8 @@ import vdb, time
 def test_vdb():
     args = {}
 
-    db = vdb.VectorDB(args)
-    db.setup(drop=True)
+    db = vdb.VectorDB(args,'default')
+    db.destroy('default')
     assert len(db.embed("hello world")) == 1024
 
     assert len(db.vector_search("hello")) == 0
@@ -24,7 +24,11 @@ def test_vdb():
     assert hello[0][1].find("Hello") != -1
 
     assert db.remove_by_substring("test") == 2
-    
+    db.insert('a test for the image id','-1')
+    ident = db.vector_search("image")
+    print(ident)
+    assert ident[0][2] == '-1'
+    db.remove_by_substring("test")
 
 
 
