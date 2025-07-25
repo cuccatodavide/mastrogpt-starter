@@ -145,7 +145,7 @@ def rag(args):
       out = llm(args, opt['model'], prompt)
       if img_html != "":
         out_str['html'] = img_html
-        out += f". I found the images: {img_ids}"
+        out += f" I found the images: {img_ids}"
   out_str['output'] = out
   print(out_str)
   return out_str
