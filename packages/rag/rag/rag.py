@@ -134,14 +134,18 @@ def rag(args):
       prompt += f"{opt['content']}" 
       print(prompt)
       img_html = ""
+      img_ids = ""
       for id in set(ids):
         if id != -1:
           img = buc.read(id)
           if img:
             url = buc.exturl(id, 3600)
             img_html += f"<img src='{url}'>"
-      out_str['html'] = img_html
+            img_ids += f"{id},"
       out = llm(args, opt['model'], prompt)
+      if img_html != "":
+        out_str['html'] = img_html
+        out += f". I found the images: {img_ids}"
   out_str['output'] = out
   print(out_str)
   return out_str
